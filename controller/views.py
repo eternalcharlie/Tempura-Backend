@@ -2,6 +2,7 @@ import urllib2
 import threading
 import config
 import time
+import re
 import json
 from django.http import HttpResponse
 # Create your views here.
@@ -9,9 +10,13 @@ from django.http import HttpResponse
 
 def create_new_task(dep, id, crn):
     # Assume course is in the format of COURSEID/COURSENUMBER
+    start_time = int(time.time())
+    quantum_length = 62400  # 24 * 3600
     if crn:  # If crn is set
         crn_available = '<tdclass="w50"><divclass="section-meeting"><spanclass="fl-offScreen-hidden">sectionopen</span><imgclass="section-img"alt="Open"title="Open"src="/cis-pac/rs/portlets/cis/img/sectionOpen.png"/></div></td><tdclass="w50"><divclass="section-meeting">'+crn+'</div></td>'
         while True:
+            if int(time.time()) - start_time >= quantum_length:
+                break
             response = urllib2.urlopen(config.url+config.term+dep+'/'+id).read()
             response = "".join(response.split())
             if crn_available in response:
@@ -22,8 +27,11 @@ def create_new_task(dep, id, crn):
             time.sleep(10)
     else:
         while True:
+            if int(time.time()) - start_time >= quantum_length:
+                break
             response = urllib2.urlopen(config.url+config.term+dep+'/'+id).read()
-            if "<span class=\"fl-offScreen-hidden\">section open</span>" in response:
+            response = "".join(response.split())
+            if re.search(r'<tdclass="w50"><divclass="section-meeting"><spanclass="fl-offScreen-hidden">sectionopen</span><imgclass="section-img"alt="Open"title="Open"src="/cis-pac/rs/portlets/cis/img/sectionOpen.png"/></div></td><tdclass="w50"><divclass="section-meeting">\d+</div></td><tdclass="w80"><divclass="section-meeting">Lecture', response):
                 print "Course Available"
                 config.thread_count = config.thread_count-1
                 break
